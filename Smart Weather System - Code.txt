@@ -1,0 +1,106 @@
+Smart Weather System 
+
+RaspberryPi Code:
+
+
+from machine import Pin, I2C, PWM
+from time import sleep
+from dht import DHT22
+from pico_i2c_lcd import I2cLcd
+
+# Initialize GPIO pins for LEDs
+Red = Pin(18, Pin.OUT)
+Yellow = Pin(28, Pin.OUT)
+Green = Pin(20, Pin.OUT)
+
+# Initialize DHT22 temperature and humidity sensor
+dht_sensor = DHT22(Pin(16))
+
+# Initialize I2C for the LCD screen
+i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
+I2C_ADDR = i2c.scan()[0]
+lcd = I2cLcd(i2c, I2C_ADDR, 2, 16)
+
+# Initialize PWM for buzzer and set to off
+buzzer = PWM(Pin(26))
+buzzer.freq(500)
+buzzer_active = False  # Track buzzer status
+buzzer_disabled = False  # Flag to prevent reactivation of the buzzer
+
+# Push button initialization
+button = Pin(3, Pin.IN, Pin.PULL_DOWN)
+
+# Function to activate the buzzer
+def activate_buzzer():
+    global buzzer_active
+    if not buzzer_disabled:  # Only activate if not permanently disabled
+        buzzer.duty_u16(1000)
+        buzzer_active = True
+
+# Function to deactivate the buzzer and disable it permanently
+def deactivate_buzzer(pin):
+    global buzzer_active, buzzer_disabled
+    buzzer.duty_u16(0)
+    buzzer_active = False
+    buzzer_disabled = True  # Disable the buzzer permanently
+
+# Attach an interrupt to the button pin for stopping and disabling the buzzer
+button.irq(trigger=Pin.IRQ_RISING, handler=deactivate_buzzer)
+
+while True:
+    dht_sensor.measure()
+    t = dht_sensor.temperature()
+    h = dht_sensor.humidity()
+
+    # Display data on the console
+    print("Temperature: {} C".format(t))
+    print("Humidity: {} %".format(h))
+
+    # Update LEDs based on temperature
+    if t > 40:
+        Red.value(1)
+        Yellow.value(0)
+        Green.value(0)
+        print("HIGH TEMPERATURE")
+    elif 30 <= t <= 40:
+        Red.value(0)
+        Yellow.value(1)
+        Green.value(0)
+        print("MEDIUM TEMPERATURE")
+    else:
+        Red.value(0)
+        Yellow.value(0)
+        Green.value(1)
+        print("NORMAL TEMPERATURE")
+
+    # Update LEDs and activate buzzer based on humidity
+    if h > 70:
+        Red.value(1)
+        Yellow.value(0)
+        Green.value(0)
+        print("HIGH HUMIDITY")
+        if not buzzer_active:
+            activate_buzzer()
+    elif 50 <= h <= 70:
+        Red.value(0)
+        Yellow.value(1)
+        Green.value(0)
+        print("MEDIUM HUMIDITY")
+        if h > 65 and not buzzer_active:
+            activate_buzzer()
+    else:
+        Red.value(0)
+        Yellow.value(0)
+        Green.value(1)
+        print("NORMAL HUMIDITY")
+        buzzer.duty_u16(0)
+        buzzer_active = False
+
+    # Update LCD
+    lcd.clear()
+    lcd.move_to(0, 0)
+    lcd.putstr('Temp : {:0.1f} C'.format(t))
+    lcd.move_to(0, 1)
+    lcd.putstr('Humi : {:0.1f} %'.format(h))
+
+    sleep(1)

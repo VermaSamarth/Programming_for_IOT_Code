@@ -1,0 +1,70 @@
+Smart Driving Assistant 
+
+Arduino Code:
+
+
+#include <LiquidCrystal.h>
+
+LiquidCrystal lcd = LiquidCrystal(10, 9, 8, 7, 6, 5); // Create an LCD object. Parameters: (RS, E, D4, D5, D6, D7)
+
+const int trigPin = 12;
+const int echoPin = 11;
+const int buzzerPin = 13; // Define the buzzer pin
+float time, distance;
+
+void setup() {
+    lcd.begin(16, 2); // Specify the LCD's number of columns and rows. Change to (20, 4) for a 20x4 LCD
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+    
+    pinMode(3, OUTPUT); // LED for long distance (> 250 cm)
+    pinMode(2, OUTPUT); // LED for medium distance (120 cm < distance <= 250 cm)
+    pinMode(1, OUTPUT); // LED for short distance (distance <= 120 cm)
+    pinMode(buzzerPin, OUTPUT); // Buzzer
+    Serial.begin(9600);
+}
+
+void loop() {
+    // Trigger the ultrasonic pulse
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+
+    // Reset all LEDs and the buzzer
+    digitalWrite(3, LOW);
+    digitalWrite(2, LOW);
+    digitalWrite(1, LOW);
+    // digitalWrite(buzzerPin, LOW); // Ensure buzzer is off unless distance is below 120 cm
+
+    // Measure the time taken for the echo to return
+    time = pulseIn(echoPin, HIGH);
+
+    // Calculate the distance in centimeters
+    distance = (time * 0.0343) / 2;
+
+    // For Serial Monitor
+    Serial.print("Distance: CM ");
+    Serial.println(distance);
+
+    // Handle LED and Buzzer logic based on distance
+    if (distance > 250) {
+        digitalWrite(1, HIGH); // Long distance LED ON
+      	tone(buzzerPin, 00);
+    } else if (distance > 120) {
+        digitalWrite(2, HIGH); // Medium distance LED ON
+      	tone(buzzerPin, 500);
+    } else {
+        digitalWrite(3, HIGH); // Short distance LED ON
+        tone(buzzerPin, 1000); // Buzzer ON when distance is less than 120 cm
+    }
+
+    // For LCD Display
+    lcd.setCursor(0, 0);
+    lcd.print("Distance in CM");
+    lcd.setCursor(0, 1);
+    lcd.print(distance);
+
+    delay(100); // Delay for stability
+}
